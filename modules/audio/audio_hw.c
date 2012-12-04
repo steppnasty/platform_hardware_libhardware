@@ -208,8 +208,10 @@ static int in_remove_audio_effect(const struct audio_stream *stream, effect_hand
 }
 
 static int adev_open_output_stream(struct audio_hw_device *dev,
-                                   uint32_t devices, int *format,
-                                   uint32_t *channels, uint32_t *sample_rate,
+				   audio_io_handle_t handle,
+                                   audio_devices_t devices,
+				   audio_output_flags_t flags,
+                                   struct audio_config *config,
                                    struct audio_stream_out **stream_out)
 {
     struct stub_audio_device *ladev = (struct stub_audio_device *)dev;

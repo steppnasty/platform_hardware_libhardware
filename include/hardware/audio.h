@@ -41,6 +41,30 @@ __BEGIN_DECLS
  */
 #define AUDIO_HARDWARE_INTERFACE "audio_hw_if"
 
+
+/* Use version 0.1 to be compatible with first generation of audio hw module with 
+ * version_major hardcoded to 1.  No audio module API change.
+ */
+#define AUDIO_MODULE_API_VERSION_0_1 HARDWARE_MODULE_API_VERSION(0, 1)
+#define AUDIO_MODULE_API_VERSION_CURRENT AUDIO_MODULE_API_VERSION_0_1
+
+/* First generation of audio devices had version hardcoded to 0. All devices with 
+ * version < 1.0 will be considered of first generation API.
+ */
+#define AUDIO_DEVICE_API_VERSION_0_0 HARDWARE_DEVICE_API_VERSION(0, 0)
+#define AUDIO_DEVICE_API_VERSION_1_0 HARDWARE_DEVICE_API_VERSION(1, 0)
+#define AUDIO_DEVICE_API_VERSION_CURRENT AUDIO_DEVICE_API_VERSION_1_0
+
+/**
+ * List of known audio HAL modules. This is the base name of the audio HAL
+ * library composed of the "audio." prefix, one of the base names below and 
+ * a suffix specific to the device.
+ * e.g: audio.primary.goldfish.so or audio.a2dp.default.so
+ */
+#define AUDIO_HARDWARE_MODULE_ID_PRIMARY "primary" 
+#define AUDIO_HARDWARE_MODULE_ID_A2DP "a2dp"
+#define AUDIO_HARDWARE_MODULE_ID_USB "usb"
+
 /**************************************/
 
 /**
@@ -63,6 +87,9 @@ __BEGIN_DECLS
 #define AUDIO_PARAMETER_VALUE_TTY_HCO "tty_hco"
 #define AUDIO_PARAMETER_VALUE_TTY_FULL "tty_full"
 
+/* A2DP sink address set by framework */
+#define AUDIO_PARAMETER_A2DP_SINK_ADDRESS "a2dp_sink_address"
+
 /**
  *  audio stream parameters
  */
@@ -73,7 +100,29 @@ __BEGIN_DECLS
 #define AUDIO_PARAMETER_STREAM_FRAME_COUNT "frame_count"
 #define AUDIO_PARAMETER_STREAM_INPUT_SOURCE "input_source"
 
+/* Query supported formats. The response is a '|' separated list of strings from
+ * audio_format_t enum e.g: "sup_formats=AUDIO_FORMAT_PCM_16_BIT" */
+#define AUDIO_PARAMETER_STREAM_SUP_FORMATS "sup_formats"
+/* Query supported channel masks. The response is a '|' separated list of strings from
+ * audio_channel_mask_t enum e.g: "sup_channels=AUDIO_CHANNEL_OUT_STEREO|AUDIO_CHANNEL_OUT_MONO" */
+#define AUDIO_PARAMETER_STREAM_SUP_CHANNELS "sup_channels"
+/* Query supported sampling rates. The response is a '|' separated list of integer values e.g:
+ * "sup_sampling_rates=44100|48000" */
+#define AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES "sup_sampling_rates"
+
 /**************************************/
+
+/* common audio stream configuration parameters */
+struct audio_config {
+    uint32_t sample_rate;
+    audio_channel_mask_t channel_mask;
+    audio_format_t format;
+};
+
+typedef struct audio_config audio_config_t;
+#ifdef QCOM_HARDWARE
+typedef struct buf_info;
+#endif
 
 /* common audio stream parameters and operations */
 struct audio_stream {
@@ -102,12 +151,12 @@ struct audio_stream {
     /**
      * audio format - eg. AUDIO_FORMAT_PCM_16_BIT
      */
-    int (*get_format)(const struct audio_stream *stream);
+    audio_format_t (*get_format)(const struct audio_stream *stream);
 
     /* currently unused - use set_parameters with key
      *     AUDIO_PARAMETER_STREAM_FORMAT
      */
-    int (*set_format)(struct audio_stream *stream, int format);
+    int (*set_format)(struct audio_stream *stream, audio_format_t format);
 
     /**
      * Put the audio hardware input/output into standby mode.
@@ -184,6 +233,22 @@ struct audio_stream_out {
      */
     int (*get_render_position)(const struct audio_stream_out *stream,
                                uint32_t *dsp_frames);
+#ifdef QCOM_HARDWARE
+    /**
+     * Get the physical address of the buffer allocated in the driver
+     */
+    int (*get_buffer_info) (const struct audio_stream_out *stream,
+				struct buf_info **buf);
+    
+#endif
+
+    /**
+     * get the local time at which the next write to the audio driver will be presented.
+     * The units are microseconds, where the epoch is decided by the local audio HAL.
+     */
+    int (*get_next_write_timestamp)(const struct audio_stream_out *stream,
+                                    int64_t *timestamp);
+
 };
 typedef struct audio_stream_out audio_stream_out_t;
 
@@ -286,6 +351,17 @@ struct audio_hw_device {
      */
     int (*set_master_volume)(struct audio_hw_device *dev, float volume);
 
+#ifndef ICS_AUDIO_BLOB
+    /**
+     * Get the current master volume value for the HAL, if the HAL supports
+     * master volume control.  AudioFlinger will query this value from the 
+     * primary audio HAL when the service starts and use the value for setting
+     * the initial master volume across all HALs.  HALs which do not support
+     * this method should leave it set to NULL.
+     */
+    int (*get_master_volume)(struct audio_hw_device *dev, float *volume);
+#endif
+
 #if defined(QCOM_HARDWARE) && defined(HAVE_FM_RADIO) && !defined(USES_LEGACY_AUDIO)
     /** set the fm audio volume. Range is between 0.0 and 1.0 */
     int (*set_fm_volume)(struct audio_hw_device *dev, float volume);
@@ -296,7 +372,7 @@ struct audio_hw_device {
      * is for standard audio playback, AUDIO_MODE_RINGTONE when a ringtone is
      * playing, and AUDIO_MODE_IN_CALL when a call is in progress.
      */
-    int (*set_mode)(struct audio_hw_device *dev, int mode);
+    int (*set_mode)(struct audio_hw_device *dev, audio_mode_t mode);
 
     /* mic mute */
     int (*set_mic_mute)(struct audio_hw_device *dev, bool state);
@@ -316,14 +392,27 @@ struct audio_hw_device {
      * 0 if one of the parameters is not supported
      */
     size_t (*get_input_buffer_size)(const struct audio_hw_device *dev,
+#ifndef ICS_AUDIO_BLOB
+                                    const struct audio_config *config);
+#else
                                     uint32_t sample_rate, int format,
                                     int channel_count);
+#endif
 
     /** This method creates and opens the audio hardware output stream */
-    int (*open_output_stream)(struct audio_hw_device *dev, uint32_t devices,
-                              int *format, uint32_t *channels,
-                              uint32_t *sample_rate,
+#ifndef ICS_AUDIO_BLOB
+    int (*open_output_stream)(struct audio_hw_device *dev,
+			      audio_io_handle_t handle, 
+			      audio_devices_t devices,
+                              audio_output_flags_t flags,
+                              struct audio_config *config,
                               struct audio_stream_out **out);
+#else
+    int (*open_output_stream)(struct audio_hw_device *dev, uint32_t devices,
+			      int *format, uint32_t *channels,
+			      uint32_t *sample_rate,
+			      struct audio_stream_out **out);
+#endif
 
 #ifdef WITH_QCOM_LPA
     /** This method creates and opens the audio hardware output session */
@@ -336,11 +425,19 @@ struct audio_hw_device {
                                 struct audio_stream_out* out);
 
     /** This method creates and opens the audio hardware input stream */
+#ifndef ICS_AUDIO_BLOB
+    int (*open_input_stream)(struct audio_hw_device *dev,
+                             audio_io_handle_t handle,
+                             audio_devices_t devices,
+                             struct audio_config *config,
+                             struct audio_stream_in **stream_in);
+#else
     int (*open_input_stream)(struct audio_hw_device *dev, uint32_t devices,
                              int *format, uint32_t *channels,
                              uint32_t *sample_rate,
                              audio_in_acoustics_t acoustics,
                              struct audio_stream_in **stream_in);
+#endif
 
     void (*close_input_stream)(struct audio_hw_device *dev,
                                struct audio_stream_in *in);
