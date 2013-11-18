@@ -241,10 +241,10 @@ struct audio_policy {
 
     /* Audio effect management */
     audio_io_handle_t (*get_output_for_effect)(struct audio_policy *pol,
-                                            struct effect_descriptor_s *desc);
+                                            const struct effect_descriptor_s *desc);
 
     int (*register_effect)(struct audio_policy *pol,
-                           struct effect_descriptor_s *desc,
+                           const struct effect_descriptor_s *desc,
                            audio_io_handle_t output,
                            uint32_t strategy,
                            int session,
@@ -257,6 +257,9 @@ struct audio_policy {
     bool (*is_stream_active)(const struct audio_policy *pol,
                              audio_stream_type_t stream,
                              uint32_t in_past_ms);
+
+    bool (*is_source_active)(const struct audio_policy *pol,
+                             audio_source_t source);
 
     /* dump state */
     int (*dump)(const struct audio_policy *pol, int fd);

@@ -90,15 +90,19 @@ __BEGIN_DECLS
 /* A2DP sink address set by framework */
 #define AUDIO_PARAMETER_A2DP_SINK_ADDRESS "a2dp_sink_address"
 
+/* Screen state */
+#define AUDIO_PARAMETER_KEY_SCREEN_STATE "screen_state"
+
 /**
  *  audio stream parameters
  */
 
-#define AUDIO_PARAMETER_STREAM_ROUTING "routing"
-#define AUDIO_PARAMETER_STREAM_FORMAT "format"
-#define AUDIO_PARAMETER_STREAM_CHANNELS "channels"
-#define AUDIO_PARAMETER_STREAM_FRAME_COUNT "frame_count"
-#define AUDIO_PARAMETER_STREAM_INPUT_SOURCE "input_source"
+#define AUDIO_PARAMETER_STREAM_ROUTING "routing"             // audio_devices_t
+#define AUDIO_PARAMETER_STREAM_FORMAT "format"               // audio_format_t
+#define AUDIO_PARAMETER_STREAM_CHANNELS "channels"           // audio_channel_mask_t
+#define AUDIO_PARAMETER_STREAM_FRAME_COUNT "frame_count"     // size_t
+#define AUDIO_PARAMETER_STREAM_INPUT_SOURCE "input_source"   // audio_source_t
+#define AUDIO_PARAMETER_STREAM_SAMPLING_RATE "sampling_rate" // uint32_t
 
 /* Query supported formats. The response is a '|' separated list of strings from
  * audio_format_t enum e.g: "sup_formats=AUDIO_FORMAT_PCM_16_BIT" */
@@ -110,6 +114,23 @@ __BEGIN_DECLS
  * "sup_sampling_rates=44100|48000" */
 #define AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES "sup_sampling_rates"
 
+/* Query handle fm parameter*/
+#define AUDIO_PARAMETER_KEY_HANDLE_FM "handle_fm"
+
+/* Query voip flag */
+#define AUDIO_PARAMETER_KEY_VOIP_CHECK "voip_flag"
+
+/* Query Fluence type */
+#define AUDIO_PARAMETER_KEY_FLUENCE_TYPE "fluence"
+
+/* Query if surround sound recording is supported */
+#define AUDIO_PARAMETER_KEY_SSR "ssr"
+
+/* Query if a2dp  is supported */
+#define AUDIO_PARAMETER_KEY_HANDLE_A2DP_DEVICE "isA2dpDeviceSupported"
+
+/* Query ADSP Status */
+#define AUDIO_PARAMETER_KEY_ADSP_STATUS "ADSP_STATUS"
 /**************************************/
 
 /* common audio stream configuration parameters */
@@ -233,13 +254,45 @@ struct audio_stream_out {
      */
     int (*get_render_position)(const struct audio_stream_out *stream,
                                uint32_t *dsp_frames);
+
 #ifdef QCOM_HARDWARE
+    /**
+     * start audio data rendering
+     */
+    int (*start)(struct audio_stream_out *stream);
+
+    /**
+     * pause audio rendering
+     */
+    int (*pause)(struct audio_stream_out *stream);
+
+    /**
+     * flush audio data with driver
+     */
+    int (*flush)(struct audio_stream_out *stream);
+
+    /**
+     * stop audio data rendering
+     */
+    int (*stop)(struct audio_stream_out *stream);
+
+    /**
+    * EOS notification from HAL to Player
+     */
+    int (*set_observer)(const struct audio_stream_out *stream,
+                               void *observer);
     /**
      * Get the physical address of the buffer allocated in the driver
      */
     int (*get_buffer_info) (const struct audio_stream_out *stream,
 				struct buf_info **buf);
-    
+
+    /**
+     * Check if next buffer is available. Waits until next buffer is
+     * available
+     */
+    int (*is_buffer_available) (const struct audio_stream_out *stream,
+                                     int *isAvail);
 #endif
 
     /**
@@ -444,6 +497,21 @@ struct audio_hw_device {
 
     /** This method dumps the state of the audio hardware */
     int (*dump)(const struct audio_hw_device *dev, int fd);
+
+    /**
+     * set the audio mute status for all audio activities.  If any value other
+     * than 0 is returned, the software mixer will emulate this capability.
+     */
+    int (*set_master_mute)(struct audio_hw_device *dev, bool mute);
+
+    /**
+     * Get the current master mute status for the HAL, if the HAL supports
+     * master mute control.  AudioFlinger will query this value from the primary
+     * audio HAL when the service starts and use the value for setting the
+     * initial master mute across all HALs.  HALs which do not support this
+     * method may leave it set to NULL.
+     */
+    int (*get_master_mute)(struct audio_hw_device *dev, bool *mute);
 };
 typedef struct audio_hw_device audio_hw_device_t;
 
@@ -461,6 +529,26 @@ static inline int audio_hw_device_close(struct audio_hw_device* device)
     return device->common.close(&device->common);
 }
 
+#ifdef QCOM_HARDWARE
+/** Structure to save buffer information for applying effects for
+ *  LPA buffers */
+struct buf_info {
+    int bufsize;
+    int nBufs;
+    int **buffers;
+};
+
+#ifdef __cplusplus
+/**
+ *Observer class to post the Events from HAL to Flinger
+*/
+class AudioEventObserver {
+public:
+    virtual ~AudioEventObserver() {}
+    virtual void postEOS(int64_t delayUs) = 0;
+};
+#endif
+#endif
 
 __END_DECLS
 

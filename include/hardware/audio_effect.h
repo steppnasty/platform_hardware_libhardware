@@ -216,6 +216,13 @@ typedef struct effect_descriptor_s {
 #define EFFECT_FLAG_AUDIO_MODE_IND      (1 << EFFECT_FLAG_AUDIO_MODE_SHIFT)
 #define EFFECT_FLAG_AUDIO_MODE_NONE     (0 << EFFECT_FLAG_AUDIO_MODE_SHIFT)
 
+// Audio source indication
+#define EFFECT_FLAG_AUDIO_SOURCE_SHIFT  (EFFECT_FLAG_AUDIO_MODE_SHIFT + EFFECT_FLAG_AUDIO_MODE_SIZE)
+#define EFFECT_FLAG_AUDIO_SOURCE_SIZE   2
+#define EFFECT_FLAG_AUDIO_SOURCE_MASK   (((1 << EFFECT_FLAG_AUDIO_SOURCE_SIZE) -1) \
+                                          << EFFECT_FLAG_AUDIO_SOURCE_SHIFT)
+#define EFFECT_FLAG_AUDIO_SOURCE_IND    (1 << EFFECT_FLAG_AUDIO_SOURCE_SHIFT)
+#define EFFECT_FLAG_AUDIO_SOURCE_NONE   (0 << EFFECT_FLAG_AUDIO_SOURCE_SHIFT)
 
 #define EFFECT_MAKE_API_VERSION(M, m)  (((M)<<16) | ((m) & 0xFFFF))
 #define EFFECT_API_VERSION_MAJOR(v)    ((v)>>16)
@@ -408,6 +415,12 @@ enum effect_command_e {
    EFFECT_CMD_SET_AUDIO_MODE,       // set the audio mode (normal, ring, ...)
    EFFECT_CMD_CONFIGURE_REVERSE,    // configure effect engine reverse stream(see effect_config_t)
    EFFECT_CMD_SET_INPUT_DEVICE,     // set capture device (see audio.h, audio_devices_t)
+   EFFECT_CMD_GET_CONFIG,           // read effect engine configuration
+   EFFECT_CMD_GET_CONFIG_REVERSE,   // read configure effect engine reverse stream configuration
+   EFFECT_CMD_GET_FEATURE_SUPPORTED_CONFIGS,// get all supported configurations for a feature.
+   EFFECT_CMD_GET_FEATURE_CONFIG,   // get current feature configuration
+   EFFECT_CMD_SET_FEATURE_CONFIG,   // set current feature configuration
+   EFFECT_CMD_SET_AUDIO_SOURCE,     // set the audio source (see audio.h, audio_source_t)
    EFFECT_CMD_FIRST_PROPRIETARY = 0x10000 // first proprietary command code
 };
 
@@ -840,7 +853,7 @@ typedef struct audio_effect_library_s {
     //        *pHandle:         updated with the effect interface handle.
     //
     ////////////////////////////////////////////////////////////////////////////////
-    int32_t (*create_effect)(effect_uuid_t *uuid,
+    int32_t (*create_effect)(const effect_uuid_t *uuid,
                              int32_t sessionId,
                              int32_t ioId,
                              effect_handle_t *pHandle);
@@ -882,7 +895,7 @@ typedef struct audio_effect_library_s {
     //        *pDescriptor:     updated with the effect descriptor.
     //
     ////////////////////////////////////////////////////////////////////////////////
-    int32_t (*get_descriptor)(effect_uuid_t *uuid,
+    int32_t (*get_descriptor)(const effect_uuid_t *uuid,
                               effect_descriptor_t *pDescriptor);
 } audio_effect_library_t;
 
