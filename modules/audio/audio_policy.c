@@ -167,7 +167,7 @@ static int ap_get_stream_volume_index(const struct audio_policy *pol,
 static int ap_set_stream_volume_index_for_device(struct audio_policy *pol,
                                       audio_stream_type_t stream,
                                       int index,
-                                      audio_device_t device)
+                                      audio_devices_t device)
 {
     return -ENOSYS;
 }
