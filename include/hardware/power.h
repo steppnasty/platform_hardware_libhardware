@@ -17,6 +17,8 @@
 #ifndef ANDROID_INCLUDE_HARDWARE_POWER_H
 #define ANDROID_INCLUDE_HARDWARE_POWER_H
 
+#define HAS_MULTIMEDIA_HINTS
+
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
@@ -43,7 +45,6 @@ typedef enum {
     POWER_HINT_INTERACTION = 0x00000002,
     POWER_HINT_VIDEO_ENCODE = 0x00000003,
     POWER_HINT_VIDEO_DECODE = 0x00000004,
-    POWER_HINT_CPU_BOOST = 0x00000005,
 } power_hint_t;
 
 /**
@@ -121,12 +122,6 @@ typedef struct power_module {
      *     indicate that recording is beginning, the string "state:1" would
      *     need to be used. More keys can be provided depending on the data
      *     that is to be passed.
-     *
-     * POWER_HINT_CPU_BOOST
-     *
-     *     An operation is happening where it would be ideal for the CPU to
-     *     be boosted for a specific duration. The data parameter is an
-     *     integer value of the boost duration in microseconds.
      *
      * A particular platform may choose to ignore any hint.
      *

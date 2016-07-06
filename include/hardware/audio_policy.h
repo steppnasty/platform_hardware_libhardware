@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +92,7 @@ struct audio_policy {
                                        audio_policy_dev_state_t state,
                                        const char *device_address);
 
-    /* retreive a device connection status */
+    /* retrieve a device connection status */
     audio_policy_dev_state_t (*get_device_connection_state)(
                                             const struct audio_policy *pol,
                                             audio_devices_t device,
@@ -101,7 +102,7 @@ struct audio_policy {
      * by audio_mode_t */
     void (*set_phone_state)(struct audio_policy *pol, audio_mode_t state);
 
-    /* indicate a change in ringer mode */
+    /* deprecated, never called (was "indicate a change in ringer mode") */
     void (*set_ringer_mode)(struct audio_policy *pol, uint32_t mode,
                             uint32_t mask);
 
@@ -110,7 +111,7 @@ struct audio_policy {
                           audio_policy_force_use_t usage,
                           audio_policy_forced_cfg_t config);
 
-    /* retreive current device category forced for a given usage */
+    /* retrieve current device category forced for a given usage */
     audio_policy_forced_cfg_t (*get_force_use)(const struct audio_policy *pol,
                                                audio_policy_force_use_t usage);
 
@@ -126,37 +127,13 @@ struct audio_policy {
      * Audio routing query functions
      */
 
-#ifdef WITH_QCOM_LPA
-    /* request an session appropriate for playback of the supplied stream type and
-     * parameters */
-    audio_io_handle_t (*get_session)(struct audio_policy *pol,
-                                    audio_stream_type_t stream,
-                                    uint32_t format,
-                                    audio_policy_output_flags_t flags,
-                                    int sessionId);
-
-    /* pause session created for LPA Playback */
-    void (*pause_session)(struct audio_policy *pol,
-                          audio_io_handle_t output,
-                          audio_stream_type_t stream);
-
-    /* resume session created for LPA Playback */
-    void (*resume_session)(struct audio_policy *pol,
-                          audio_io_handle_t output,
-                          audio_stream_type_t stream);
-
-    /* release session created for LPA Playback */
-    void (*release_session)(struct audio_policy *pol,
-                          audio_io_handle_t output);
-#endif
-
-    /* request an output appriate for playback of the supplied stream type and
+    /* request an output appropriate for playback of the supplied stream type and
      * parameters */
     audio_io_handle_t (*get_output)(struct audio_policy *pol,
                                     audio_stream_type_t stream,
                                     uint32_t samplingRate,
                                     audio_format_t format,
-                                    uint32_t channels,
+                                    audio_channel_mask_t channelMask,
                                     audio_output_flags_t flags);
 
     /* indicates to the audio policy manager that the output starts being used
@@ -176,12 +153,12 @@ struct audio_policy {
     /* releases the output. */
     void (*release_output)(struct audio_policy *pol, audio_io_handle_t output);
 
-    /* request an input appriate for record from the supplied device with
+    /* request an input appropriate for record from the supplied device with
      * supplied parameters. */
     audio_io_handle_t (*get_input)(struct audio_policy *pol, audio_source_t inputSource,
                                    uint32_t samplingRate,
                                    audio_format_t format,
-                                   uint32_t channels,
+                                   audio_channel_mask_t channelMask,
                                    audio_in_acoustics_t acoustics);
 
     /* indicates to the audio policy manager that the input starts being used */
@@ -198,24 +175,23 @@ struct audio_policy {
      */
 
     /* initialises stream volume conversion parameters by specifying volume
-     * index range. */
+     * index range. The index range for each stream is defined by AudioService. */
     void (*init_stream_volume)(struct audio_policy *pol,
                                audio_stream_type_t stream,
                                int index_min,
                                int index_max);
 
     /* sets the new stream volume at a level corresponding to the supplied
-     * index */
+     * index. The index is within the range specified by init_stream_volume() */
     int (*set_stream_volume_index)(struct audio_policy *pol,
                                    audio_stream_type_t stream,
                                    int index);
 
-    /* retreive current volume index for the specified stream */
+    /* retrieve current volume index for the specified stream */
     int (*get_stream_volume_index)(const struct audio_policy *pol,
                                    audio_stream_type_t stream,
                                    int *index);
 
-#ifndef ICS_AUDIO_BLOB
     /* sets the new stream volume at a level corresponding to the supplied
      * index for the specified device.
      * The index is within the range specified by init_stream_volume() */
@@ -229,7 +205,6 @@ struct audio_policy {
                                    audio_stream_type_t stream,
                                    int *index,
                                    audio_devices_t device);
-#endif
 
     /* return the strategy corresponding to a given stream type */
     uint32_t (*get_strategy_for_stream)(const struct audio_policy *pol,
@@ -294,18 +269,6 @@ struct audio_policy_service_ops {
                                      uint32_t *pLatencyMs,
                                      audio_output_flags_t flags);
 
-#ifdef WITH_QCOM_LPA
-    audio_io_handle_t (*open_session)(void *service,
-                                     uint32_t *pDevices,
-                                     uint32_t *pFormat,
-                                     audio_policy_output_flags_t flags,
-                                     int32_t stream,
-                                     int32_t sessionId);
-
-    audio_io_handle_t (*close_session)(void *service,
-                                      audio_io_handle_t output);
-#endif
-
     /* creates a special output that is duplicated to the two outputs passed as
      * arguments. The duplication is performed by
      * a special mixer thread in the AudioFlinger.
@@ -332,7 +295,10 @@ struct audio_policy_service_ops {
     /* Audio input Control functions */
     /* */
 
-    /* opens an audio input */
+    /* opens an audio input
+     * deprecated - new implementations should use open_input_on_module,
+     * and the acoustics parameter is ignored
+     */
     audio_io_handle_t (*open_input)(void *service,
                                     audio_devices_t *pDevices,
                                     uint32_t *pSamplingRate,
@@ -374,7 +340,7 @@ struct audio_policy_service_ops {
      * audio hardware interface to audio policy manager.
      *
      * Returns a pointer to a heap allocated string. The caller is responsible
-     * for freeing the memory for it.
+     * for freeing the memory for it using free().
      */
 
     char * (*get_parameters)(void *service, audio_io_handle_t io_handle,
@@ -401,12 +367,10 @@ struct audio_policy_service_ops {
                         audio_io_handle_t src_output,
                         audio_io_handle_t dst_output);
 
-#if defined(QCOM_HARDWARE) && defined(HAVE_FM_RADIO) && !defined(USES_LEGACY_AUDIO)
     /* set fm audio volume. */
     int (*set_fm_volume)(void *service,
                          float volume,
                          int delay_ms);
-#endif
 
     /* loads an audio hw module.
      *
@@ -418,7 +382,7 @@ struct audio_policy_service_ops {
                                               const char *name);
 
     /* Opens an audio output on a particular HW module.
-     * 
+     *
      * Same as open_output() but specifying a specific HW module on which the output must be opened.
      */
     audio_io_handle_t (*open_output_on_module)(void *service,

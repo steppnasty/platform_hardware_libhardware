@@ -78,6 +78,7 @@ enum {
      * by SurfaceFlinger (just as if compositionType was set to HWC_OVERLAY).
      */
     HWC_SKIP_LAYER = 0x00000001,
+    HWC_SCREENSHOT_ANIMATOR_LAYER = 0x00000002,
 };
 
 /*
@@ -97,6 +98,9 @@ enum {
     /* this layer holds the result of compositing the HWC_FRAMEBUFFER layers.
      * Added in HWC_DEVICE_API_VERSION_1_1. */
     HWC_FRAMEBUFFER_TARGET = 3,
+
+    /* this layer will be handled in the HWC, using a blit engine */
+    HWC_BLIT = 4,
 };
 
 /*
@@ -179,16 +183,17 @@ enum {
 
 /* Allowed events for hwc_methods::eventControl() */
 enum {
-    HWC_EVENT_VSYNC     = 0
+    HWC_EVENT_VSYNC     = 0,
+    HWC_EVENT_ORIENTATION
 };
 
 /* Display types and associated mask bits. */
 enum {
     HWC_DISPLAY_PRIMARY     = 0,
     HWC_DISPLAY_EXTERNAL    = 1,    // HDMI, DP, etc.
+    HWC_DISPLAY_VIRTUAL     = 2,    // WFD etc.
+    HWC_NUM_DISPLAY_TYPES
 };
-
-#define HWC_NUM_DISPLAY_TYPES 1
 
 enum {
     HWC_DISPLAY_PRIMARY_BIT     = 1 << HWC_DISPLAY_PRIMARY,

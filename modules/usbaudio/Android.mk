@@ -1,4 +1,4 @@
-# Copyright (C) 2011 The Android Open Source Project
+# Copyright (C) 2012 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,14 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := nfc.default
+LOCAL_MODULE := audio.usb.default
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-LOCAL_SRC_FILES := nfc_pn544_example.c
-LOCAL_SHARED_LIBRARIES := liblog libcutils
+LOCAL_SRC_FILES := \
+	audio_hw.c
+LOCAL_C_INCLUDES += \
+	external/tinyalsa/include
+LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
+
